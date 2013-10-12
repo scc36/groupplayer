@@ -10,12 +10,12 @@
 
   <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
   <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-theme.min.css" rel="stylesheet">
-  <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css" rel="stylesheet">
   <link href="http://bootswatch.com/spacelab/bootstrap.min.css" rel="stylesheet">
+  <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css" rel="stylesheet">
 
 </head>
 
-<body>
+<body ng-app="groupPlayer" ng-controller="Player">
   <!-- Static navbar -->
   <nav class="navbar navbar-inverse">
     <div class="navbar-header">
@@ -37,46 +37,52 @@
       <div id="player"></div>
     </div>
     <div class="row">
-      <p>Add new item</p>
-      <input type='text' id='newItem' placeholder='web page link'>
+      <input type='text' ng-model="newItem" placeholder='Add new web page link'>
+      <button type="button" ng-click="addVideo()" class="btn btn-success">
+        <span class="glyphicon glyphicon-plus-sign"></span>
+      </button>
+      <table class="table-bordered">
+        <tr ng-repeat="(key, video) in playlist">
+          <td>
+            <button type="button" ng-click="removeVideo(key)" class="btn btn-danger">
+              <span class="glyphicon glyphicon-minus-sign"></span>
+            </button>
+          </td>
+          <td>
+            {{ $index }}
+          </td>
+          <td>
+            {{ video }}
+          </td>
+        </tr>
+      </table>
     </div>
   </div> <!-- /container -->
 
   <script src="//www.youtube.com/player_api"></script>
   <script src="//code.jquery.com/jquery.js"></script>
   <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.0.8/angular.min.js"></script>
   <script src='//cdn.firebase.com/v0/firebase.js'></script>
   <script src='//cdn.firebase.com/libs/angularfire/0.3.0/angularfire.min.js'></script>
   <script>
     var groupPlayer = angular.module('groupPlayer', ['firebase']);
     groupPlayer.controller('Player', function ($scope, angularFire) {
-      //set $scope.playlist;
+      $scope.playlist = [];
       var fireplay = new Firebase("https://groupplayer.firebaseio.com/");
-      angularFire(fireplay, $scope, "playlist");
+      angularFire(fireplay.limit(100), $scope, "playlist");
+      
+      $scope.addVideo = function() {
+        if ($scope.newItem) {
+          $scope.playlist[fireplay.push().name()] = $scope.newItem;
+          $scope.newItem = "";
+        }
+      }
+      
+      $scope.removeVideo = function(key) {
+        delete $scope.playlist[key];
+      }
     });
-    
-    // prepare firebase
-    var myDataRef = new Firebase('https://hillset.firebaseio.com/');
-    
-    // When the user presses enter on the message input, write the message to firebase.
-  $('#messageInput').keypress(function (e) {
-    if (e.keyCode == 13) {
-      var name = $('#nameInput').val();
-      var text = $('#messageInput').val();
-      myDataRef.push({name:name, text:text});
-      $('#messageInput').val('');
-    }
-  });
-  
-    myDataRef.on('child_added', function(snapshot) {
-      var message = snapshot.val();
-      console.log(message);
-      //displayChatMessage(message.name, message.text);
-    });
-    function displayChatMessage(name, text) {
-      //$('<div/>').text(text).prepend($('<em/>').text(name+': ')).appendTo($('#messagesDiv'));
-      //$('#messagesDiv')[0].scrollTop = $('#messagesDiv')[0].scrollHeight;
-    };
     
     // create youtube player
     var player;
@@ -92,7 +98,7 @@
 
     // autoplay video
     function onPlayerReady(event) {
-        event.target.playVideo();
+        //event.target.playVideo();
     }
 
     // when video ends
