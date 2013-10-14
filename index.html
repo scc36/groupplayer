@@ -37,22 +37,37 @@
       <div id="player"></div>
     </div>
     <div class="row">
-      <input type='text' ng-model="newItem" placeholder='Add new web page link'>
-      <button type="button" ng-click="addVideo()" class="btn btn-success">
+      <h4>Room Name</h4>
+      <input type='text' ng-model="room" class="col-md-5" placeholder='ID for desired playlist'>
+      <label for="room" class="col-lg-2 control-label">{{ room }}</label>
+    </div>
+    <div class="row">
+      <h4>Playlist
+        <button type="button" ng-click="setNext()" class="btn btn-default btn-sm">
+          Force Next Video
+        </button>
+      </h4>
+      <div ng-show="message" class="alert alert-info">{{ message }}</div>
+      <button type="button" ng-click="addVideo()" class="btn btn-success btn-sm col-md-1">
         <span class="glyphicon glyphicon-plus-sign"></span>
       </button>
-      <table class="table-bordered">
+      <input type='text' ng-model="newItem" class="col-md-10" placeholder='Add new webpage link'>
+      <table class="table table-bordered table-condensed">
+        <tr>
+            <th>#</th>
+            <th>HTML Address</th>
+        </tr>
         <tr ng-repeat="(key, video) in playlist">
-          <td>
-            <button type="button" ng-click="removeVideo(key)" class="btn btn-danger">
-              <span class="glyphicon glyphicon-minus-sign"></span>
-            </button>
-          </td>
           <td>
             {{ $index }}
           </td>
           <td>
             {{ video }}
+          </td>
+          <td>
+            <button type="button" ng-click="removeVideo(key)" class="btn btn-danger btn-xs">
+              <span class="glyphicon glyphicon-minus-sign"></span>
+            </button>
           </td>
         </tr>
       </table>
@@ -65,48 +80,107 @@
   <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.0.8/angular.min.js"></script>
   <script src='//cdn.firebase.com/v0/firebase.js'></script>
   <script src='//cdn.firebase.com/libs/angularfire/0.3.0/angularfire.min.js'></script>
+  <script src="jsuri-1.1.1.min.js"></script>
   <script>
     var groupPlayer = angular.module('groupPlayer', ['firebase']);
-    groupPlayer.controller('Player', function ($scope, angularFire) {
-      $scope.playlist = [];
+    groupPlayer.controller('Player', function ($scope, $window, angularFire) {
+      var current = "";
+      $scope.message = "";
+      
+      var readyYT = false;
+      var init = true;
+      
+      var player;
+      $scope.playlist = {};
       var fireplay = new Firebase("https://groupplayer.firebaseio.com/");
-      angularFire(fireplay.limit(100), $scope, "playlist");
+      angularFire(fireplay, $scope, "playlist");
       
       $scope.addVideo = function() {
         if ($scope.newItem) {
-          $scope.playlist[fireplay.push().name()] = $scope.newItem;
-          $scope.newItem = "";
+          var valid = checkLink($scope.newItem);
+          if (valid) {
+            $scope.playlist[fireplay.push().name()] = $scope.newItem;
+            $scope.newItem = "";
+          }
+          else {
+            $scope.message = "Unrecognized link provided (make sure it's from youtube)"
+          }
         }
-      }
+      };
       
       $scope.removeVideo = function(key) {
         delete $scope.playlist[key];
+      };
+      
+      $scope.setNext = function() {
+        var first = "";
+        for (first in $scope.playlist) break;
+        if (first) {
+          if (current == first) {
+          // Need to refresh model
+            $scope.removeVideo(first);
+            $scope.$apply();
+            $scope.setNext();
+          }
+          else {
+            current = first;
+            
+            var id = checkLink($scope.playlist[first]);
+            if (id) {
+              $scope.message = "";
+              player.loadVideoById(id);
+            }
+            else {
+              $scope.message = "Bad link, moving to next item in Playlist";
+              $scope.removeVideo(first);
+              $scope.setNext();
+            }
+          }
+        }
+        else {
+          $scope.message = "No valid items in the Playlist";
+        }
       }
-    });
-    
-    // create youtube player
-    var player;
-    function onYouTubePlayerAPIReady() {
+      
+      var checkLink = function(link) {
+        //https://code.google.com/p/jsuri/
+        var uri = new Uri (link);
+        if (uri.host() == 'www.youtube.com') {
+          return uri.getQueryParamValue('v')
+        }
+        else {
+          return false;
+        }
+      }
+      
+      $scope.checkInit = function() {
+        if (init && Object.keys($scope.playlist).length && readyYT) {
+          init = false;
+          $scope.setNext();
+        }
+      };
+      $scope.$watch('playlist', $scope.checkInit);
+      
+      $window.onYouTubePlayerAPIReady = function () {
         player = new YT.Player('player', {
-          videoId: 'a1Y73sPHKxw',
           events: {
-            'onReady': onPlayerReady,
-            'onStateChange': onPlayerStateChange
+            'onReady': $scope.onPlayerReady,
+            'onStateChange': $scope.onPlayerStateChange
           }
         });
-    }
-
-    // autoplay video
-    function onPlayerReady(event) {
-        //event.target.playVideo();
-    }
-
-    // when video ends
-    function onPlayerStateChange(event) {        
+      };
+      
+      $scope.onPlayerReady = function(event) {
+        readyYT = true;
+        $scope.checkInit();
+      };
+      
+      $scope.onPlayerStateChange = function(event) {
         if(event.data === 0) {            
-            alert('done');
+          $scope.setNext();
         }
-    }
+      };
+    });
   </script>
 
 </body>
